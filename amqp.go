@@ -198,6 +198,37 @@ func (amqp *AMQP) Listen(options ListenOptions) error {
 	return err
 }
 
+func (amqp *AMQP) ListenAndWaitMessage(options ListenOptions) error {
+	conn, err := amqp.GetConn(options.ConnectionID)
+	if err != nil {
+		return err
+	}
+	ch, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	msgs, err := ch.Consume(
+		options.QueueName,
+		options.Consumer,
+		options.AutoAck,
+		options.Exclusive,
+		options.NoLocal,
+		options.NoWait,
+		options.Args,
+	)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for d := range msgs {
+			err = options.Listener(string(d.Body))
+		}
+	}()
+	return err
+}
+
 func init() {
 	connections := make(map[int]*amqpDriver.Connection)
 	maxConnID := 0
